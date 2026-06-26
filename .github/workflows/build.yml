@@ -38,6 +38,9 @@ jobs:
           # Fix mtk_imgsensor inline error
           sed -i 's/inline int kdSetSpeed/int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
 
+          # Fix mtk_connectivity (wlan) inline error
+          sed -i 's/inline uint32_t gl_rst_bus_read_32/uint32_t gl_rst_bus_read_32/g' kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.h
+
       - name: Build Kernel
         run: |
           cd kernel-source
