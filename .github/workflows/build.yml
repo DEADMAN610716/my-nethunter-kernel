@@ -12,11 +12,16 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc build-essential libncurses5-dev libssl-dev xz-utils binutils-aarch64-linux-gnu bison flex libelf-dev clang lld
+          sudo apt-get install -y bc build-essential libncurses5-dev libssl-dev xz-utils binutils-aarch64-linux-gnu bison flex libelf-dev clang lld git
 
       - name: Pull Kernel Source
         run: |
           git clone --depth=1 -b sixteen https://github.com/sarthakroy2002/kernel_realme_RMX2020 kernel-source
+
+      - name: Pull GCC Cross-Compiler toolchain
+        run: |
+          git clone --depth=1 https://github.com/mvaisakh/gcc-arm64 gcc64
+          echo "$(pwd)/gcc64/bin" >> $GITHUB_PATH
 
       - name: Build Kernel
         run: |
