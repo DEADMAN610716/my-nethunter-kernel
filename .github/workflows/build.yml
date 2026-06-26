@@ -12,7 +12,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc build-essential libncurses5-dev libssl-dev xz-utils binitails-aarch64-linux-gnu bison flex libelf-dev clang lld
+          sudo apt-get install -y bc build-essential libncurses5-dev libssl-dev xz-utils binutils-aarch64-linux-gnu bison flex libelf-dev clang lld
 
       - name: Pull Kernel Source
         run: |
