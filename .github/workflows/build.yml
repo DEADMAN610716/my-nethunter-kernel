@@ -34,9 +34,12 @@ jobs:
             sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi.h
           fi
 
-          # Fix mtk_imgsensor inline error if file exists
+          # Fix mtk_imgsensor inline/multiple definition error by converting inline to static
           if [ -f kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h ]; then
-            sed -i 's/inline int kdSetSpeed/int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
+            sed -i 's/inline int kdSetSpeed/static int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
+          fi
+          if [ -f kernel-source/drivers/misc/mediatek/imgsensor/src/common/v1/kd_imgsensor.c ]; then
+            sed -i 's/inline int kdSetSpeed/static int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/src/common/v1/kd_imgsensor.c
           fi
 
           # Fix mtk_connectivity (wlan) multiple definition error by converting inline to static
