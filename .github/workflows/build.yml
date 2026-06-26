@@ -5,7 +5,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # ফিক্স ১: টাইমআউট বাড়িয়ে সর্বোচ্চ ৬ ঘণ্টা করা হলো যাতে মাঝপথে প্রসেস কিল না হয়
     timeout-minutes: 360
 
     steps:
@@ -64,11 +63,10 @@ jobs:
           export LD=ld.lld
           
           make O=out RMX2020_defconfig
-          # ফিক্স ২: মেমোরি ক্র্যাশ (OOM) এড়াতে থ্রেড সংখ্যা সীমিত করে -j2 দেওয়া হলো
           make -j2 O=out
 
       - name: Upload Kernel Artifact
-        uses: actions/artifacts/upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: NetHunter-Kernel-RMX2020
           path: kernel-source/out/arch/arm64/boot/Image.gz-dtb
