@@ -18,9 +18,13 @@ jobs:
         run: |
           git clone --depth=1 -b sixteen https://github.com/sarthakroy2002/kernel_realme_RMX2020 kernel-source
 
-      - name: Fix Code Error Automatically
+      - name: Fix Code Errors Automatically
         run: |
+          # Fix resmap_account inline error
           sed -i 's/extern inline unsigned long vm_mmap_pgoff_with_check/unsigned long vm_mmap_pgoff_with_check/g' kernel-source/include/linux/resmap_account.h
+          
+          # Fix keyslot-manager inline error
+          sed -i 's/inline void ksm_flock/void ksm_flock/g' kernel-source/include/linux/keyslot-manager.h
 
       - name: Build Kernel
         run: |
@@ -33,10 +37,4 @@ jobs:
           export LD=ld.lld
           
           make O=out RMX2020_defconfig
-          make O=out -j1
-
-      - name: Upload Finished Kernel
-        uses: actions/upload-artifact@v4
-        with:
-          name: NetHunter-Kernel-Image
-          path: kernel-source/out/arch/arm64/boot/Image.gz-dtb
+          make -j$(nproc --all) O=out
