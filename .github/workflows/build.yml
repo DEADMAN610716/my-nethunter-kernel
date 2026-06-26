@@ -6,16 +6,40 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Workflow
         uses: actions/checkout@v4
 
-      - name: Run Android Kernel Build Action
-        uses: Fyg369/Kernel-Action@main
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc build-essential libncurses5-dev libssl-dev xz-utils binitails-aarch64-linux-gnu bison flex libelf-dev clang lld
+
+      - name: Pull Kernel Source
+        run: |
+          git clone --depth=1 -b sixteen https://github.com/sarthakroy2002/kernel_realme_RMX2020 kernel-source
+
+      - name: Download Google Clang Compiler
+        run: |
+          mkdir clang
+          cd clang
+          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r510928.tar.gz
+          tar -xf clang-r510928.tar.gz
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+
+      - name: Build Kernel
+        run: |
+          cd kernel-source
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export CC=clang
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+          
+          make O=out RMX2020_defconfig
+          make -j$(nproc --all) O=out
+
+      - name: Upload Finished Kernel
+        uses: actions/upload-artifact@v4
         with:
-          kernel-url: https://github.com/sarthakroy2002/kernel_realme_RMX2020
-          kernel-branch: sixteen
-          config-file: RMX2020_defconfig
-          compiler: aosp-clang
-          clang-version: r510928
-          ksu: true
-          ksu-version: main
+          name: NetHunter-Kernel-Image
+          path: kernel-source/out/arch/arm64/boot/Image.gz-dtb
