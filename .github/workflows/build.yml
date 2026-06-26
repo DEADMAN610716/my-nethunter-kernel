@@ -33,7 +33,7 @@ jobs:
           export LD=ld.lld
           
           make O=out RMX2020_defconfig
-          make -j$(nproc --all) O=out
+          make O=out -j1
 
       - name: Upload Finished Kernel
         uses: actions/upload-artifact@v4
