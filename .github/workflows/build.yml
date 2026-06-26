@@ -26,20 +26,26 @@ jobs:
           # Fix keyslot-manager inline error
           sed -i 's/inline void ksm_flock/void ksm_flock/g' kernel-source/include/linux/keyslot-manager.h
 
-          # Fix all mtk_ion inline errors in mtk_ion_priv.h
-          sed -i 's/inline void __mtk_ion_drv_clean_max_islands/void __mtk_ion_drv_clean_max_islands/g' kernel-source/drivers/staging/android/ion/mtk/mtk_ion_priv.h
-          sed -i 's/inline bool __mtk_ion_drv_is_island_client/bool __mtk_ion_drv_is_island_client/g' kernel-source/drivers/staging/android/ion/mtk/mtk_ion_priv.h
-          sed -i 's/inline void __mtk_ion_drv_clean_island/void __mtk_ion_drv_clean_island/g' kernel-source/drivers/staging/android/ion/mtk/mtk_ion_priv.h
+          # Fix mtk_hdmi inline errors if files exist
+          if [ -f kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi_priv.h ]; then
+            sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi_priv.h
+          fi
+          if [ -f kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi.h ]; then
+            sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi.h
+          fi
 
-          # Fix mtk_hdmi inline errors
-          sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi_priv.h
-          sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi.h
+          # Fix mtk_imgsensor inline error if file exists
+          if [ -f kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h ]; then
+            sed -i 's/inline int kdSetSpeed/int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
+          fi
 
-          # Fix mtk_imgsensor inline error
-          sed -i 's/inline int kdSetSpeed/int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
-
-          # Fix mtk_connectivity (wlan) inline error
-          sed -i 's/inline uint32_t gl_rst_bus_read_32/uint32_t gl_rst_bus_read_32/g' kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.h
+          # Fix mtk_connectivity (wlan) inline errors if files exist
+          if [ -f kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.h ]; then
+            sed -i 's/inline uint32_t gl_rst_bus_read_32/uint32_t gl_rst_bus_read_32/g' kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.h
+          fi
+          if [ -f kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.c ]; then
+            sed -i 's/inline uint32_t gl_rst_bus_read_32/uint32_t gl_rst_bus_read_32/g' kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.c
+          fi
 
       - name: Build Kernel
         run: |
