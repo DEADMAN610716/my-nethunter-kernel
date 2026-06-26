@@ -20,7 +20,7 @@ jobs:
 
       - name: Fix Code Error Automatically
         run: |
-          sed -i 's/extern inline unsigned long vm_mmap_pgoff_with_check/static inline unsigned long vm_mmap_pgoff_with_check/g' kernel-source/include/linux/resmap_account.h
+          sed -i 's/extern inline unsigned long vm_mmap_pgoff_with_check/unsigned long vm_mmap_pgoff_with_check/g' kernel-source/include/linux/resmap_account.h
 
       - name: Build Kernel
         run: |
