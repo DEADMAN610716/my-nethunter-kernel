@@ -35,6 +35,9 @@ jobs:
           sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi_priv.h
           sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi.h
 
+          # Fix mtk_imgsensor inline error
+          sed -i 's/inline int kdSetSpeed/int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
+
       - name: Build Kernel
         run: |
           cd kernel-source
