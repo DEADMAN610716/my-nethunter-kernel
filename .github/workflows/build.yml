@@ -39,12 +39,12 @@ jobs:
             sed -i 's/inline int kdSetSpeed/int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
           fi
 
-          # Fix mtk_connectivity (wlan) inline errors if files exist
+          # Fix mtk_connectivity (wlan) multiple definition error by converting inline to static
           if [ -f kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.h ]; then
-            sed -i 's/inline uint32_t gl_rst_bus_read_32/uint32_t gl_rst_bus_read_32/g' kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.h
+            sed -i 's/inline uint32_t gl_rst_bus_read_32/static uint32_t gl_rst_bus_read_32/g' kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.h
           fi
           if [ -f kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.c ]; then
-            sed -i 's/inline uint32_t gl_rst_bus_read_32/uint32_t gl_rst_bus_read_32/g' kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.c
+            sed -i 's/inline uint32_t gl_rst_bus_read_32/static uint32_t gl_rst_bus_read_32/g' kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.c
           fi
 
       - name: Build Kernel
