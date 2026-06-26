@@ -18,6 +18,10 @@ jobs:
         run: |
           git clone --depth=1 -b sixteen https://github.com/sarthakroy2002/kernel_realme_RMX2020 kernel-source
 
+      - name: Fix Code Error Automatically
+        run: |
+          sed -i 's/extern inline unsigned long vm_mmap_pgoff_with_check/static inline unsigned long vm_mmap_pgoff_with_check/g' kernel-source/include/linux/resmap_account.h
+
       - name: Build Kernel
         run: |
           cd kernel-source
