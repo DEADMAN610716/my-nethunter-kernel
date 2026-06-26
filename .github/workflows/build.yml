@@ -18,14 +18,6 @@ jobs:
         run: |
           git clone --depth=1 -b sixteen https://github.com/sarthakroy2002/kernel_realme_RMX2020 kernel-source
 
-      - name: Download Google Clang Compiler
-        run: |
-          mkdir clang
-          cd clang
-          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r510928.tar.gz
-          tar -xf clang-r510928.tar.gz
-          echo "$(pwd)/bin" >> $GITHUB_PATH
-
       - name: Build Kernel
         run: |
           cd kernel-source
@@ -33,7 +25,7 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CC=clang
-          export CLANG_TRIPLE=aarch64-linux-gnu-
+          export LD=ld.lld
           
           make O=out RMX2020_defconfig
           make -j$(nproc --all) O=out
