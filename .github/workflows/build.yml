@@ -1,0 +1,21 @@
+name: Build NetHunter Kernel
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Android Kernel Build Action
+        uses: Fyg369/Kernel-Action@main
+        with:
+          kernel_repo: https://github.com/sarthakroy2002/kernel_realme_RMX2020
+          kernel_branch: sixteen
+          config_file: RMX2020_defconfig
+          compiler: aosp-clang
+          clang_version: r510928
+          enable_ksu: true
+          ksu_version: main
