@@ -26,8 +26,9 @@ jobs:
           # Fix keyslot-manager inline error
           sed -i 's/inline void ksm_flock/void ksm_flock/g' kernel-source/include/linux/keyslot-manager.h
 
-          # Fix mtk_ion inline error
+          # Fix mtk_ion inline errors
           sed -i 's/inline void __mtk_ion_drv_clean_max_islands/void __mtk_ion_drv_clean_max_islands/g' kernel-source/drivers/staging/android/ion/mtk/mtk_ion_priv.h
+          sed -i 's/inline bool __mtk_ion_drv_is_island_client/bool __mtk_ion_drv_is_island_client/g' kernel-source/drivers/staging/android/ion/mtk/mtk_ion_priv.h
 
       - name: Build Kernel
         run: |
