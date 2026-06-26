@@ -31,6 +31,9 @@ jobs:
           sed -i 's/inline bool __mtk_ion_drv_is_island_client/bool __mtk_ion_drv_is_island_client/g' kernel-source/drivers/staging/android/ion/mtk/mtk_ion_priv.h
           sed -i 's/inline void __mtk_ion_drv_clean_island/void __mtk_ion_drv_clean_island/g' kernel-source/drivers/staging/android/ion/mtk/mtk_ion_priv.h
 
+          # Fix mtk_hdmi inline error
+          sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi_priv.h
+
       - name: Build Kernel
         run: |
           cd kernel-source
