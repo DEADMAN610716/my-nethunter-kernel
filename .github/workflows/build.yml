@@ -32,18 +32,23 @@ jobs:
 
       - name: Fix Code Errors Automatically
         run: |
-          # Fix modpost.c syntax/compiler error directly
+          # 1. Fix Display Driver Typo (primary_display_el_en -> primary_display_esd_en)
+          if [ -f kernel-source/drivers/misc/mediatek/video/mt6768/videox/mtk_fb.c ]; then
+            sed -i 's/primary_display_el_en/primary_display_esd_en/g' kernel-source/drivers/misc/mediatek/video/mt6768/videox/mtk_fb.c
+          fi
+
+          # 2. Fix modpost.c syntax error
           if [ -f kernel-source/scripts/mod/modpost.c ]; then
             sed -i 's/extern inline/static inline/g' kernel-source/scripts/mod/modpost.c
           fi
 
-          # Fix resmap_account inline error
+          # 3. Fix resmap_account inline error
           sed -i 's/extern inline unsigned long vm_mmap_pgoff_with_check/unsigned long vm_mmap_pgoff_with_check/g' kernel-source/include/linux/resmap_account.h
           
-          # Fix keyslot-manager inline error
+          # 4. Fix keyslot-manager inline error
           sed -i 's/inline void ksm_flock/void ksm_flock/g' kernel-source/include/linux/keyslot-manager.h
 
-          # Fix mtk_hdmi inline errors if files exist
+          # 5. Fix mtk_hdmi inline errors
           if [ -f kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi_priv.h ]; then
             sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi_priv.h
           fi
@@ -51,7 +56,7 @@ jobs:
             sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi.h
           fi
 
-          # Fix mtk_imgsensor inline/multiple definition error
+          # 6. Fix mtk_imgsensor inline/multiple definition error
           if [ -f kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h ]; then
             sed -i 's/inline int kdSetSpeed/static int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
           fi
@@ -59,7 +64,7 @@ jobs:
             sed -i 's/inline int kdSetSpeed/static int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/src/common/v1/kd_imgsensor.c
           fi
 
-          # Fix mtk_connectivity (wlan) multiple definition error
+          # 7. Fix mtk_connectivity (wlan) multiple definition error
           if [ -f kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.h ]; then
             sed -i 's/inline uint32_t gl_rst_bus_read_32/static uint32_t gl_rst_bus_read_32/g' kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.h
           fi
@@ -76,8 +81,6 @@ jobs:
           export CROSS_COMPILE_COMPAT=aarch64-linux-gnu
           export CC=clang
           export LD=ld.lld
-          
-          # Modpost স্ক্রিপ্ট জেনারেট করার জন্য হোস্ট কম্পাইলার ডিফাইন করা হলো
           export HOSTCC=gcc
           export HOSTRM=rm
           
