@@ -22,7 +22,6 @@ jobs:
 
       - name: Install Build Dependencies
         run: |
-          # উবুন্টুর সব ইউনিভার্স রিপোজিটরি এনে প্যাকেজ আপডেট করা হচ্ছে
           sudo add-apt-repository universe
           sudo apt-get update
           sudo apt-get install -y bc build-essential libncurses-dev libssl-dev xz-utils bison flex libelf-dev clang lld git gcc-aarch64-linux-gnu
@@ -33,6 +32,11 @@ jobs:
 
       - name: Fix Code Errors Automatically
         run: |
+          # Fix modpost.c syntax/compiler error directly
+          if [ -f kernel-source/scripts/mod/modpost.c ]; then
+            sed -i 's/extern inline/static inline/g' kernel-source/scripts/mod/modpost.c
+          fi
+
           # Fix resmap_account inline error
           sed -i 's/extern inline unsigned long vm_mmap_pgoff_with_check/unsigned long vm_mmap_pgoff_with_check/g' kernel-source/include/linux/resmap_account.h
           
@@ -68,15 +72,18 @@ jobs:
           cd kernel-source
           export ARCH=arm64
           export SUBARCH=arm64
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          # 32-bit কম্পাইলার মিসিং এরর এড়াতে মেইন ক্রস কম্পাইলারকেই এখানে লিংক করা হলো
-          export CROSS_COMPILE_COMPAT=aarch64-linux-gnu-
+          export CROSS_COMPILE=aarch64-linux-gnu
+          export CROSS_COMPILE_COMPAT=aarch64-linux-gnu
           export CC=clang
           export LD=ld.lld
           
+          # Modpost স্ক্রিপ্ট জেনারেট করার জন্য হোস্ট কম্পাইলার ডিফাইন করা হলো
+          export HOSTCC=gcc
+          export HOSTRM=rm
+          
           make O=out RMX2020_defconfig
           make -j1 O=out
-
+          
       - name: Upload Kernel Artifact
         uses: actions/upload-artifact@v4
         with:
