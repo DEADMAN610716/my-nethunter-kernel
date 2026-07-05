@@ -5,11 +5,22 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # বিল্ড যেন মেমোরি বা টাইমের কারণে মাঝপথে কেটে না যায়
     timeout-minutes: 360
 
     steps:
       - name: Checkout Workflow
         uses: actions/checkout@v4
+
+      - name: Maximize Build Space & Create SWAP (Fix OOM)
+        run: |
+          # এক্সট্রা ৪ জিবি ভার্চুয়াল র‍্যাম (SWAP) তৈরি করা হচ্ছে ওওএম ক্র্যাশ ঠেকাতে
+          sudo swapoff -a
+          sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "SWAP Memory configured successfully!"
 
       - name: Install Build Dependencies
         run: |
@@ -63,7 +74,8 @@ jobs:
           export LD=ld.lld
           
           make O=out RMX2020_defconfig
-          make -j2 O=out
+          # মেমোরি ক্র্যাশ পুরোপুরি আটকাতে সিঙ্গেল থ্রেড (-j1) ব্যবহার করা হলো
+          make -j1 O=out
 
       - name: Upload Kernel Artifact
         uses: actions/upload-artifact@v4
