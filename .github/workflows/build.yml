@@ -1,95 +1,37 @@
-name: Build NetHunter Kernel
+name: Build NetHunter PixelOS RMX2020 (Fixed)
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  compile:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
-
+    permissions:
+      contents: write
     steps:
-      - name: Checkout Workflow
-        uses: actions/checkout@v4
-
-      - name: Maximize Build Space & Create SWAP (Fix OOM)
+      - name: Maximize Environment Space
         run: |
-          sudo swapoff -a
-          sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          echo "SWAP Memory configured successfully!"
-
-      - name: Install Build Dependencies
-        run: |
-          sudo add-apt-repository universe
-          sudo apt-get update
-          sudo apt-get install -y bc build-essential libncurses-dev libssl-dev xz-utils bison flex libelf-dev clang lld git gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
-
-      - name: Pull Kernel Source
-        run: |
-          git clone --depth=1 -b sixteen https://github.com/sarthakroy2002/kernel_realme_RMX2020 kernel-source
-
-      - name: Fix Code Errors Automatically
-        run: |
-          # 1. Fix Display Driver Typo (primary_display_el_en -> primary_display_esd_en)
-          if [ -f kernel-source/drivers/misc/mediatek/video/mt6768/videox/mtk_fb.c ]; then
-            sed -i 's/primary_display_el_en/primary_display_esd_en/g' kernel-source/drivers/misc/mediatek/video/mt6768/videox/mtk_fb.c
-          fi
-
-          # 2. Fix modpost.c syntax error
-          if [ -f kernel-source/scripts/mod/modpost.c ]; then
-            sed -i 's/extern inline/static inline/g' kernel-source/scripts/mod/modpost.c
-          fi
-
-          # 3. Fix resmap_account inline error
-          sed -i 's/extern inline unsigned long vm_mmap_pgoff_with_check/unsigned long vm_mmap_pgoff_with_check/g' kernel-source/include/linux/resmap_account.h
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android/sdk/ndk /usr/share/swift
           
-          # 4. Fix keyslot-manager inline error
-          sed -i 's/inline void ksm_flock/void ksm_flock/g' kernel-source/include/linux/keyslot-manager.h
-
-          # 5. Fix mtk_hdmi inline errors
-          if [ -f kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi_priv.h ]; then
-            sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi_priv.h
-          fi
-          if [ -f kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi.h ]; then
-            sed -i 's/inline void mtk_hdmi_vdo_output/void mtk_hdmi_vdo_output/g' kernel-source/drivers/misc/mediatek/hdmi/mtk_hdmi.h
-          fi
-
-          # 6. Fix mtk_imgsensor inline/multiple definition error
-          if [ -f kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h ]; then
-            sed -i 's/inline int kdSetSpeed/static int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/inc/kd_imgsensor.h
-          fi
-          if [ -f kernel-source/drivers/misc/mediatek/imgsensor/src/common/v1/kd_imgsensor.c ]; then
-            sed -i 's/inline int kdSetSpeed/static int kdSetSpeed/g' kernel-source/drivers/misc/mediatek/imgsensor/src/common/v1/kd_imgsensor.c
-          fi
-
-          # 7. Fix mtk_connectivity (wlan) multiple definition error
-          if [ -f kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.h ]; then
-            sed -i 's/inline uint32_t gl_rst_bus_read_32/static uint32_t gl_rst_bus_read_32/g' kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.h
-          fi
-          if [ -f kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.c ]; then
-            sed -i 's/inline uint32_t gl_rst_bus_read_32/static uint32_t gl_rst_bus_read_32/g' kernel-source/drivers/misc/mediatek/connectivity/wlan/gen4/gl_rst.c
-          fi
-
-      - name: Build Kernel
-        run: |
-          cd kernel-source
-          export ARCH=arm64
-          export SUBARCH=arm64
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export CROSS_COMPILE_COMPAT=arm-linux-gnueabihf-
-          export CC=clang
-          export LD=ld.lld
-          export HOSTCC=gcc
-          export HOSTRM=rm
-          
-          make O=out RMX2020_defconfig
-          make -j$(nproc) O=out
-          
-      - name: Upload Kernel Artifact
-        uses: actions/upload-artifact@v4
+      - name: Run Android Kernel Build Pipeline
+        uses: dabao1955/kernel_build_action@main
         with:
-          name: NetHunter-Kernel-RMX2020
-          path: kernel-source/out/arch/arm64/boot/Image.gz-dtb
+          kernel-url: https://github.com
+          kernel-branch: sixteen
+          config: RMX2020_defconfig
+          arch: arm64
+          aosp-gcc: true
+          aosp-clang: true
+          android-version: 14
+          
+          # Native NetHunter Engine Injections
+          nethunter: true
+          nethunter-patch: true
+          
+          # Extra configs override for missing wireless modules
+          merge-configs: |
+            [
+              "https://githubusercontent.com"
+            ]
+            
+          anykernel3: true
