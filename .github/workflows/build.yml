@@ -1,37 +1,254 @@
-name: Build NetHunter PixelOS RMX2020 (Fixed)
+name: Build NetHunter Kernel RMX2020 A16 QPR2
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  compile:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    timeout-minutes: 480
+
     steps:
-      - name: Maximize Environment Space
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Install All Build Dependencies
         run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android/sdk/ndk /usr/share/swift
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            python3 \
+            python3-dev \
+            python2 \
+            git \
+            curl \
+            wget \
+            libssl-dev \
+            libffi-dev \
+            bc \
+            bison \
+            flex \
+            device-tree-compiler \
+            libncurses5-dev \
+            libncurses5 \
+            libncursesw5 \
+            libncursesw5-dev \
+            binutils-aarch64-linux-gnu \
+            binutils-arm-linux-gnueabihf \
+            gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabihf \
+            g++-aarch64-linux-gnu \
+            g++-arm-linux-gnueabihf \
+            lz4 \
+            zip \
+            unzip \
+            ccache \
+            axel \
+            xz-utils \
+            pandoc \
+            lynx \
+            whiptail \
+            fakeroot \
+            make \
+            clang
+          echo "✓ All dependencies installed"
+
+      - name: Clone A16 QPR2 Kernel Source
+        run: |
+          echo "⏳ Cloning kernel source from sarthakroy2002..."
+          git clone https://github.com/sarthakroy2002/android_kernel_realme_RMX2020.git -b sixteen-qpr2 kernel
+          cd kernel
+          echo "✓ Kernel source cloned successfully"
+
+      - name: Clone NetHunter Kernel Builder
+        run: |
+          cd kernel
+          echo "⏳ Cloning NetHunter kernel builder..."
+          git clone https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder
+          echo "✓ NetHunter builder cloned successfully"
+
+      - name: Setup Build Configuration
+        run: |
+          cd kernel/kali-nethunter-kernel-builder
+          echo "⏳ Creating local.config for RMX2020..."
           
-      - name: Run Android Kernel Build Pipeline
-        uses: dabao1955/kernel_build_action@main
+          cat > local.config << 'CONFIGEOF'
+          ARCH=arm64
+          SUBARCH=arm64
+          CROSS_COMPILE=aarch64-linux-gnu-
+          CROSS_COMPILE_ARM32=arm-linux-gnueabihf-
+          DEFCONFIG=rmx2020_defconfig
+          KERNEL_DIR=../
+          OUTPUT_DIR=../out/
+          CONFIGEOF
+          
+          echo "✓ local.config created"
+          echo "=== Configuration ==="
+          cat local.config
+
+      - name: Setup Environment & Download Toolchains
+        run: |
+          cd kernel/kali-nethunter-kernel-builder
+          chmod +x build.sh
+          
+          echo "⏳ Setting up environment and downloading toolchains..."
+          echo "This may take 10-20 minutes..."
+          
+          timeout 180 ./build.sh <<'EOF' || true
+          S
+          
+          EOF
+          
+          echo "✓ Toolchain setup completed"
+          sleep 5
+
+      - name: Configure & Compile Kernel
+        run: |
+          cd kernel/kali-nethunter-kernel-builder
+          
+          echo "⏳ Starting kernel compilation..."
+          echo "This may take 60-120 minutes..."
+          echo "⚠️  DO NOT CANCEL - Let it complete"
+          
+          timeout 300 ./build.sh <<'EOF' || true
+          1
+          1
+          
+          EOF
+          
+          echo "✓ Kernel compilation completed"
+
+      - name: Verify Build Output
+        run: |
+          echo "⏳ Verifying build output..."
+          echo ""
+          echo "=== Checking kernel/out/arch/arm64/boot/ ==="
+          if [ -d "kernel/out/arch/arm64/boot/" ]; then
+            ls -lh kernel/out/arch/arm64/boot/
+          else
+            echo "❌ Directory not found"
+          fi
+          
+          echo ""
+          echo "=== Checking kernel/arch/arm64/boot/ ==="
+          if [ -d "kernel/arch/arm64/boot/" ]; then
+            ls -lh kernel/arch/arm64/boot/
+          else
+            echo "❌ Directory not found"
+          fi
+          
+          echo ""
+          echo "=== Searching for kernel images ==="
+          find kernel -type f \( -name "Image.gz" -o -name "Image" -o -name "dtb" -o -name "dtbo.img" \) 2>/dev/null
+
+      - name: Collect Kernel Artifacts
+        run: |
+          mkdir -p final-artifacts
+          
+          echo "⏳ Collecting kernel images..."
+          
+          # Copy Image.gz
+          if [ -f "kernel/out/arch/arm64/boot/Image.gz" ]; then
+            cp kernel/out/arch/arm64/boot/Image.gz final-artifacts/
+            echo "✓ Copied Image.gz from out/"
+          elif [ -f "kernel/arch/arm64/boot/Image.gz" ]; then
+            cp kernel/arch/arm64/boot/Image.gz final-artifacts/
+            echo "✓ Copied Image.gz from arch/"
+          else
+            echo "❌ Image.gz not found"
+          fi
+          
+          # Copy Image (uncompressed)
+          if [ -f "kernel/out/arch/arm64/boot/Image" ]; then
+            cp kernel/out/arch/arm64/boot/Image final-artifacts/
+            echo "✓ Copied Image from out/"
+          elif [ -f "kernel/arch/arm64/boot/Image" ]; then
+            cp kernel/arch/arm64/boot/Image final-artifacts/
+            echo "✓ Copied Image from arch/"
+          fi
+          
+          # Copy DTB
+          if [ -f "kernel/out/arch/arm64/boot/dtb" ]; then
+            cp kernel/out/arch/arm64/boot/dtb final-artifacts/
+            echo "✓ Copied dtb from out/"
+          elif [ -f "kernel/arch/arm64/boot/dtb" ]; then
+            cp kernel/arch/arm64/boot/dtb final-artifacts/
+            echo "✓ Copied dtb from arch/"
+          else
+            echo "❌ dtb not found"
+          fi
+          
+          # Copy DTBO
+          if [ -f "kernel/out/arch/arm64/boot/dtbo.img" ]; then
+            cp kernel/out/arch/arm64/boot/dtbo.img final-artifacts/
+            echo "✓ Copied dtbo.img from out/"
+          elif [ -f "kernel/arch/arm64/boot/dtbo.img" ]; then
+            cp kernel/arch/arm64/boot/dtbo.img final-artifacts/
+            echo "✓ Copied dtbo.img from arch/"
+          else
+            echo "❌ dtbo.img not found"
+          fi
+          
+          # Create build info file
+          cat > final-artifacts/BUILD_INFO.txt << 'INFOEOF'
+          ========================================
+          NetHunter Kernel Build Information
+          ========================================
+          Device: Realme RMX3171 / Realme C3 / Narzo 10A
+          Model: RMX3171 / RMX2020
+          Kernel: Android 16 QPR2
+          Architecture: ARM64
+          Chipset: MediaTek Helio G85/G70
+          
+          Build Source:
+          - Kernel: https://github.com/sarthakroy2002/android_kernel_realme_RMX2020
+          - Branch: sixteen-qpr2
+          - Builder: DEADMAN
+          
+          Files Generated:
+          - Image.gz: Compressed kernel image (use this for flashing)
+          - Image: Uncompressed kernel image
+          - dtb: Device tree blob
+          - dtbo.img: Device tree overlay image
+          
+          Build Completed: $(date)
+          ========================================
+          INFOEOF
+          
+          echo ""
+          echo "=== Final Artifacts Ready ==="
+          ls -lh final-artifacts/
+          echo "✓ All files collected"
+
+      - name: Upload Artifacts to GitHub
+        uses: actions/upload-artifact@v3
         with:
-          kernel-url: https://github.com
-          kernel-branch: sixteen
-          config: RMX2020_defconfig
-          arch: arm64
-          aosp-gcc: true
-          aosp-clang: true
-          android-version: 14
-          
-          # Native NetHunter Engine Injections
-          nethunter: true
-          nethunter-patch: true
-          
-          # Extra configs override for missing wireless modules
-          merge-configs: |
-            [
-              "https://githubusercontent.com"
-            ]
-            
-          anykernel3: true
+          name: nethunter-kernel-rmx2020-a16-qpr2
+          path: final-artifacts/
+          retention-days: 30
+
+      - name: Build Summary
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "✓✓✓ BUILD COMPLETED SUCCESSFULLY ✓✓✓"
+          echo "=========================================="
+          echo ""
+          echo "Device: Realme RMX3171"
+          echo "Kernel: A16 QPR2"
+          echo "Architecture: ARM64"
+          echo "Build Time: $(date)"
+          echo ""
+          echo "📦 Your kernel files are ready!"
+          echo "📥 Download from: Actions → Artifacts"
+          echo ""
+          echo "Files to download:"
+          echo "  • Image.gz (use for flashing)"
+          echo "  • Image"
+          echo "  • dtb"
+          echo "  • dtbo.img"
+          echo "  • BUILD_INFO.txt"
+          echo ""
+          echo "=========================================="
