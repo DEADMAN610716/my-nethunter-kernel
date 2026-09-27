@@ -197,10 +197,10 @@ jobs:
           NetHunter Kernel Build Information
           ========================================
           Device: Realme RMX3171 / Realme C3 / Narzo 10A
-          Model: RMX3171 / RMX2020
+          Model: RMX3171 / RMX2027
           Kernel: Android 16 QPR2
           Architecture: ARM64
-          Chipset: MediaTek Helio G85/G70
+          Chipset: MediaTek Helio G85/70
           
           Build Source:
           - Kernel: https://github.com/sarthakroy2002/android_kernel_realme_RMX2020
@@ -223,7 +223,7 @@ jobs:
           echo "✓ All files collected"
 
       - name: Upload Artifacts to GitHub
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: nethunter-kernel-rmx2020-a16-qpr2
           path: final-artifacts/
@@ -236,7 +236,7 @@ jobs:
           echo "✓✓✓ BUILD COMPLETED SUCCESSFULLY ✓✓✓"
           echo "=========================================="
           echo ""
-          echo "Device: Realme RMX3171"
+          echo "Device: Realme RMX2020"
           echo "Kernel: A16 QPR2"
           echo "Architecture: ARM64"
           echo "Build Time: $(date)"
