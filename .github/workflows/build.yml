@@ -51,58 +51,64 @@ jobs:
             make \
             clang \
             cpio \
-            perl
+            perl \
+            vim
           echo "✓ All dependencies installed successfully"
 
-      - name: Configure Git
+      - name: Download Kernel Source with Retry
         run: |
-          git config --global url."https://github.com/".insteadOf git://github.com/
-          git config --global url."https://gitlab.com/".insteadOf git://gitlab.com/
-          git config --global http.postBuffer 524288000
-          git config --global core.compression 0
-
-      - name: Clone A16 QPR2 Kernel Source
-        run: |
-          echo "⏳ Cloning kernel source from sarthakroy2002..."
+          echo "⏳ Downloading kernel source..."
           
-          git clone --depth=1 --single-branch \
-            https://github.com/sarthakroy2002/android_kernel_realme_RMX2020.git \
-            -b sixteen-qpr2 kernel 2>&1 || \
-          git clone --depth=1 --single-branch \
-            https://github.com/sarthakroy2002/android_kernel_realme_RMX2020.git \
-            -b sixteen-qpr2 kernel 2>&1 || \
-          git clone --depth=1 --single-branch \
-            https://github.com/sarthakroy2002/android_kernel_realme_RMX2020.git \
-            -b sixteen-qpr2 kernel
+          # Try downloading as ZIP multiple times
+          for attempt in {1..5}; do
+            echo "Attempt $attempt..."
+            
+            if wget -q --timeout=30 -O kernel.zip "https://github.com/sarthakroy2002/android_kernel_realme_RMX2020/archive/refs/heads/sixteen-qpr2.zip"; then
+              echo "✓ Download successful"
+              unzip -q kernel.zip
+              mv android_kernel_realme_RMX2020-sixteen-qpr2 kernel
+              break
+            else
+              echo "Download failed, retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
           
-          if [ -d "kernel" ]; then
-            echo "✓ Kernel source cloned successfully"
-          else
-            echo "❌ Failed to clone kernel source"
+          if [ ! -d "kernel" ]; then
+            echo "❌ Failed to download kernel source"
             exit 1
           fi
-
-      - name: Clone NetHunter Kernel Builder
-        run: |
+          
           cd kernel
-          echo "⏳ Cloning NetHunter kernel builder..."
+          echo "✓ Kernel source ready"
+          ls -la
+
+      - name: Download NetHunter Builder with Retry
+        run: |
+          echo "⏳ Downloading NetHunter kernel builder..."
           
-          git clone --depth=1 --single-branch \
-            https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder.git \
-            kali-nethunter-kernel-builder 2>&1 || \
-          git clone --depth=1 --single-branch \
-            https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder.git \
-            kali-nethunter-kernel-builder 2>&1 || \
-          git clone --depth=1 --single-branch \
-            https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder.git \
-            kali-nethunter-kernel-builder
+          # Try downloading as ZIP multiple times
+          for attempt in {1..5}; do
+            echo "Attempt $attempt..."
+            
+            if wget -q --timeout=30 -O builder.zip "https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder/-/archive/master/kali-nethunter-kernel-builder-master.zip"; then
+              echo "✓ Download successful"
+              unzip -q builder.zip
+              mv kali-nethunter-kernel-builder-master kernel/kali-nethunter-kernel-builder
+              break
+            else
+              echo "Download failed, retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
           
-          if [ -d "kali-nethunter-kernel-builder" ]; then
-            echo "✓ NetHunter builder cloned successfully"
-          else
-            echo "❌ Failed to clone NetHunter builder"
+          if [ ! -d "kernel/kali-nethunter-kernel-builder" ]; then
+            echo "❌ Failed to download NetHunter builder"
             exit 1
           fi
+          
+          echo "✓ NetHunter builder ready"
+          ls -la kernel/kali-nethunter-kernel-builder
 
       - name: Setup Build Configuration
         run: |
@@ -129,9 +135,9 @@ jobs:
           chmod +x build.sh
           
           echo "⏳ Setting up environment and downloading toolchains..."
-          echo "This may take 10-20 minutes..."
+          echo "This may take 15-25 minutes..."
           
-          timeout 180 ./build.sh <<'EOF' || true
+          timeout 200 ./build.sh <<'EOF' || true
           S
           
           EOF
@@ -154,6 +160,7 @@ jobs:
           EOF
           
           echo "✓ Kernel compilation completed"
+          sleep 5
 
       - name: Verify Build Output
         run: |
@@ -161,6 +168,7 @@ jobs:
           echo ""
           echo "=== Checking kernel/out/arch/arm64/boot/ ==="
           if [ -d "kernel/out/arch/arm64/boot/" ]; then
+            echo "✓ Found output directory"
             ls -lh kernel/out/arch/arm64/boot/
           else
             echo "❌ Directory not found"
@@ -169,14 +177,15 @@ jobs:
           echo ""
           echo "=== Checking kernel/arch/arm64/boot/ ==="
           if [ -d "kernel/arch/arm64/boot/" ]; then
+            echo "✓ Found alternate directory"
             ls -lh kernel/arch/arm64/boot/
           else
             echo "❌ Directory not found"
           fi
           
           echo ""
-          echo "=== Searching for kernel images ==="
-          find kernel -type f \( -name "Image.gz" -o -name "Image" -o -name "dtb" -o -name "dtbo.img" \) 2>/dev/null
+          echo "=== Searching for all kernel images ==="
+          find kernel -type f \( -name "Image.gz" -o -name "Image" -o -name "dtb" -o -name "dtbo.img" \) 2>/dev/null | head -20
 
       - name: Collect Kernel Artifacts
         run: |
@@ -184,46 +193,50 @@ jobs:
           
           echo "⏳ Collecting kernel images..."
           
+          found_files=0
+          
           # Copy Image.gz
           if [ -f "kernel/out/arch/arm64/boot/Image.gz" ]; then
             cp kernel/out/arch/arm64/boot/Image.gz final-artifacts/
             echo "✓ Copied Image.gz from out/"
+            found_files=$((found_files + 1))
           elif [ -f "kernel/arch/arm64/boot/Image.gz" ]; then
             cp kernel/arch/arm64/boot/Image.gz final-artifacts/
             echo "✓ Copied Image.gz from arch/"
-          else
-            echo "❌ Image.gz not found"
+            found_files=$((found_files + 1))
           fi
           
           # Copy Image (uncompressed)
           if [ -f "kernel/out/arch/arm64/boot/Image" ]; then
             cp kernel/out/arch/arm64/boot/Image final-artifacts/
             echo "✓ Copied Image from out/"
+            found_files=$((found_files + 1))
           elif [ -f "kernel/arch/arm64/boot/Image" ]; then
             cp kernel/arch/arm64/boot/Image final-artifacts/
             echo "✓ Copied Image from arch/"
+            found_files=$((found_files + 1))
           fi
           
           # Copy DTB
           if [ -f "kernel/out/arch/arm64/boot/dtb" ]; then
             cp kernel/out/arch/arm64/boot/dtb final-artifacts/
             echo "✓ Copied dtb from out/"
+            found_files=$((found_files + 1))
           elif [ -f "kernel/arch/arm64/boot/dtb" ]; then
             cp kernel/arch/arm64/boot/dtb final-artifacts/
             echo "✓ Copied dtb from arch/"
-          else
-            echo "❌ dtb not found"
+            found_files=$((found_files + 1))
           fi
           
           # Copy DTBO
           if [ -f "kernel/out/arch/arm64/boot/dtbo.img" ]; then
             cp kernel/out/arch/arm64/boot/dtbo.img final-artifacts/
             echo "✓ Copied dtbo.img from out/"
+            found_files=$((found_files + 1))
           elif [ -f "kernel/arch/arm64/boot/dtbo.img" ]; then
             cp kernel/arch/arm64/boot/dtbo.img final-artifacts/
             echo "✓ Copied dtbo.img from arch/"
-          else
-            echo "❌ dtbo.img not found"
+            found_files=$((found_files + 1))
           fi
           
           # Create build info file
@@ -255,7 +268,13 @@ jobs:
           echo ""
           echo "=== Final Artifacts Ready ==="
           ls -lh final-artifacts/
-          echo "✓ All files collected"
+          
+          if [ $found_files -eq 0 ]; then
+            echo "⚠️  WARNING: No kernel files found!"
+            echo "Build may have failed. Check the logs above."
+          else
+            echo "✓ Successfully collected $found_files files"
+          fi
 
       - name: Upload Artifacts to GitHub
         uses: actions/upload-artifact@v4
@@ -268,7 +287,7 @@ jobs:
         run: |
           echo ""
           echo "=========================================="
-          echo "✓✓✓ BUILD COMPLETED SUCCESSFULLY ✓✓✓"
+          echo "✓✓✓ BUILD WORKFLOW COMPLETED ✓✓✓"
           echo "=========================================="
           echo ""
           echo "Device: Realme RMX2020"
@@ -276,14 +295,12 @@ jobs:
           echo "Architecture: ARM64"
           echo "Build Time: $(date)"
           echo ""
-          echo "📦 Your kernel files are ready!"
+          if [ -f "final-artifacts/Image.gz" ]; then
+            echo "✓ Kernel successfully compiled!"
+          else
+            echo "⚠️  Kernel compilation may have failed"
+            echo "Check the logs for errors"
+          fi
+          echo ""
           echo "📥 Download from: Actions → Artifacts"
-          echo ""
-          echo "Files to download:"
-          echo "  • Image.gz (use for flashing)"
-          echo "  • Image"
-          echo "  • dtb"
-          echo "  • dtbo.img"
-          echo "  • BUILD_INFO.txt"
-          echo ""
           echo "=========================================="
