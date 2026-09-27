@@ -51,64 +51,24 @@ jobs:
             make \
             clang \
             cpio \
-            perl \
-            vim
+            perl
           echo "✓ All dependencies installed successfully"
 
-      - name: Download Kernel Source with Retry
+      - name: Extract Kernel Sources
         run: |
-          echo "⏳ Downloading kernel source..."
+          echo "⏳ Extracting kernel sources..."
           
-          # Try downloading as ZIP multiple times
-          for attempt in {1..5}; do
-            echo "Attempt $attempt..."
-            
-            if wget -q --timeout=30 -O kernel.zip "https://github.com/sarthakroy2002/android_kernel_realme_RMX2020/archive/refs/heads/sixteen-qpr2.zip"; then
-              echo "✓ Download successful"
-              unzip -q kernel.zip
-              mv android_kernel_realme_RMX2020-sixteen-qpr2 kernel
-              break
-            else
-              echo "Download failed, retrying in 10 seconds..."
-              sleep 10
-            fi
-          done
-          
-          if [ ! -d "kernel" ]; then
-            echo "❌ Failed to download kernel source"
+          if [ -f "kernel-sources.tar.gz" ]; then
+            tar -xzf kernel-sources.tar.gz
+            echo "✓ Kernel sources extracted from tar.gz"
+          else
+            echo "❌ kernel-sources.tar.gz not found!"
+            echo "Available files:"
+            ls -la
             exit 1
           fi
           
-          cd kernel
-          echo "✓ Kernel source ready"
-          ls -la
-
-      - name: Download NetHunter Builder with Retry
-        run: |
-          echo "⏳ Downloading NetHunter kernel builder..."
-          
-          # Try downloading as ZIP multiple times
-          for attempt in {1..5}; do
-            echo "Attempt $attempt..."
-            
-            if wget -q --timeout=30 -O builder.zip "https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder/-/archive/master/kali-nethunter-kernel-builder-master.zip"; then
-              echo "✓ Download successful"
-              unzip -q builder.zip
-              mv kali-nethunter-kernel-builder-master kernel/kali-nethunter-kernel-builder
-              break
-            else
-              echo "Download failed, retrying in 10 seconds..."
-              sleep 10
-            fi
-          done
-          
-          if [ ! -d "kernel/kali-nethunter-kernel-builder" ]; then
-            echo "❌ Failed to download NetHunter builder"
-            exit 1
-          fi
-          
-          echo "✓ NetHunter builder ready"
-          ls -la kernel/kali-nethunter-kernel-builder
+          ls -la kernel/
 
       - name: Setup Build Configuration
         run: |
