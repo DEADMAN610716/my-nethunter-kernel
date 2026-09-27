@@ -57,16 +57,39 @@ jobs:
       - name: Clone A16 QPR2 Kernel Source
         run: |
           echo "⏳ Cloning kernel source from sarthakroy2002..."
-          git clone https://github.com/sarthakroy2002/android_kernel_realme_RMX2020.git -b sixteen-qpr2 kernel
-          cd kernel
-          echo "✓ Kernel source cloned successfully"
+          for i in {1..3}; do
+            if git clone --depth=1 https://github.com/sarthakroy2002/android_kernel_realme_RMX2020.git -b sixteen-qpr2 kernel; then
+              echo "✓ Kernel source cloned successfully"
+              break
+            else
+              echo "Attempt $i failed, retrying..."
+              sleep 10
+            fi
+          done
+          
+          if [ ! -d "kernel" ]; then
+            echo "❌ Failed to clone kernel source"
+            exit 1
+          fi
 
       - name: Clone NetHunter Kernel Builder
         run: |
           cd kernel
           echo "⏳ Cloning NetHunter kernel builder..."
-          git clone https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder
-          echo "✓ NetHunter builder cloned successfully"
+          for i in {1..3}; do
+            if git clone --depth=1 https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder; then
+              echo "✓ NetHunter builder cloned successfully"
+              break
+            else
+              echo "Attempt $i failed, retrying..."
+              sleep 10
+            fi
+          done
+          
+          if [ ! -d "kali-nethunter-kernel-builder" ]; then
+            echo "❌ Failed to clone NetHunter builder"
+            exit 1
+          fi
 
       - name: Setup Build Configuration
         run: |
@@ -195,16 +218,16 @@ jobs:
           ========================================
           NetHunter Kernel Build Information
           ========================================
-          Device: Realme RMX3171 / Realme C3 / Narzo 10A
-          Model: RMX3171 / RMX2027
+          Device: Realme RMX2020 / Realme C3 / Narzo 10A
+          Model: RMX2020 / RMX2027
           Kernel: Android 16 QPR2
           Architecture: ARM64
-          Chipset: MediaTek Helio G85
+          Chipset: MediaTek Helio G70
           
           Build Source:
           - Kernel: https://github.com/sarthakroy2002/android_kernel_realme_RMX2020
           - Branch: sixteen-qpr2
-          - Builder: DEADMAN
+          - Builder: Kali Linux NetHunter
           
           Files Generated:
           - Image.gz: Compressed kernel image (use this for flashing)
