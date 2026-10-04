@@ -1,356 +1,110 @@
-name: Build NetHunter Kernel RMX2020 A16 QPR2
+name: Build RMX2020 Kernel
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 480
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Install All Build Dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential \
-            python3 \
-            python3-dev \
-            git \
-            curl \
-            wget \
-            libssl-dev \
-            libffi-dev \
-            bc \
-            bison \
-            flex \
-            device-tree-compiler \
+            bc bison flex build-essential \
+            clang lld llvm \
+            libssl-dev libelf-dev \
             libncurses-dev \
-            libncursesw5-dev \
-            binutils-aarch64-linux-gnu \
-            binutils-arm-linux-gnueabihf \
-            gcc-aarch64-linux-gnu \
-            gcc-arm-linux-gnueabihf \
-            g++-aarch64-linux-gnu \
-            g++-arm-linux-gnueabihf \
-            lz4 \
-            zip \
-            unzip \
-            ccache \
-            axel \
-            xz-utils \
-            pandoc \
-            lynx \
-            whiptail \
-            fakeroot \
-            make \
-            clang \
-            cpio \
-            perl
-          echo "✓ All dependencies installed successfully"
+            device-tree-compiler \
+            pahole cpio \
+            python3 python3-dev \
+            rsync zip unzip \
+            gcc-aarch64-linux-gnu
 
-      - name: Configure Git for Cloning
+      - name: Clone kernel source
         run: |
-          git config --global http.postBuffer 524288000
-          git config --global core.compression 0
-          git config --global http.version HTTP/1.1
-          git config --global url."https://github.com/".insteadOf git://github.com/
-          git config --global url."https://gitlab.com/".insteadOf git://gitlab.com/
+          git clone --depth=1 \
+            --branch sixteen-qpr2 \
+            https://github.com/sarthakroy2002/kernel_realme_RMX2020.git \
+            kernel
 
-      - name: Clone Kernel Source (Attempt 1)
-        continue-on-error: true
-        id: kernel_clone_1
+      - name: Inspect source
+        working-directory: kernel
         run: |
-          echo "⏳ Cloning kernel source (Attempt 1)..."
-          git clone --depth=1 --single-branch \
-            https://github.com/sarthakroy2002/android_kernel_realme_RMX2020.git \
-            -b sixteen-qpr2 kernel
-          echo "success=true" >> $GITHUB_OUTPUT
+          set -eux
+          git log -1 --oneline
+          git branch --show-current
+          test -f Makefile
+          find arch/arm64/configs -type f | sort
+          grep -nE 'RMX2020|defconfig|clang|CROSS_COMPILE' build.sh 2>/dev/null || true
 
-      - name: Clone Kernel Source (Attempt 2)
-        if: steps.kernel_clone_1.outputs.success != 'true'
-        continue-on-error: true
-        id: kernel_clone_2
+      - name: Prepare configuration
+        working-directory: kernel
         run: |
-          echo "⏳ Cloning kernel source (Attempt 2)..."
-          rm -rf kernel
-          sleep 15
-          git clone --depth=1 --single-branch \
-            https://github.com/sarthakroy2002/android_kernel_realme_RMX2020.git \
-            -b sixteen-qpr2 kernel
-          echo "success=true" >> $GITHUB_OUTPUT
+          set -eux
+          mkdir -p out
+          make O=out ARCH=arm64 RMX2020_defconfig
 
-      - name: Clone Kernel Source (Attempt 3)
-        if: steps.kernel_clone_2.outputs.success != 'true'
+      - name: Build kernel
+        working-directory: kernel
         run: |
-          echo "⏳ Cloning kernel source (Attempt 3)..."
-          rm -rf kernel
-          sleep 30
-          git clone --depth=1 --single-branch \
-            https://github.com/sarthakroy2002/android_kernel_realme_RMX2020.git \
-            -b sixteen-qpr2 kernel
-          
-          if [ ! -d "kernel" ]; then
-            echo "❌ Failed to clone kernel after 3 attempts"
-            exit 1
+          set -eux
+          make -j"$(nproc)" \
+            O=out \
+            ARCH=arm64 \
+            SUBARCH=arm64 \
+            LLVM=1 \
+            LLVM_IAS=1
+
+      - name: Verify output
+        working-directory: kernel
+        run: |
+          set -eux
+          test -f out/.config
+          find out/arch/arm64/boot -maxdepth 3 -type f -print
+          test -f out/arch/arm64/boot/Image || \
+            test -f out/arch/arm64/boot/Image.gz
+
+      - name: Prepare artifacts
+        run: |
+          set -eux
+          mkdir -p artifacts
+
+          cp kernel/out/.config artifacts/
+
+          if [ -f kernel/out/arch/arm64/boot/Image.gz ]; then
+            cp kernel/out/arch/arm64/boot/Image.gz artifacts/
           fi
-          echo "✓ Kernel source cloned successfully"
 
-      - name: Verify Kernel Source
-        run: |
-          if [ ! -d "kernel" ]; then
-            echo "❌ Kernel directory not found"
-            exit 1
+          if [ -f kernel/out/arch/arm64/boot/Image ]; then
+            cp kernel/out/arch/arm64/boot/Image artifacts/
           fi
-          echo "✓ Kernel directory exists"
-          ls -la kernel/ | head -20
 
-      - name: Clone NetHunter Builder (Attempt 1)
-        continue-on-error: true
-        id: builder_clone_1
-        run: |
-          cd kernel
-          echo "⏳ Cloning NetHunter builder (Attempt 1)..."
-          git clone --depth=1 --single-branch \
-            https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder.git \
-            kali-nethunter-kernel-builder
-          echo "success=true" >> $GITHUB_OUTPUT
+          find kernel/out/arch/arm64/boot \
+            -type f \
+            \( -name '*.dtb' -o -name 'dtb' -o -name 'dtbo.img' \) \
+            -exec cp --parents {} artifacts/ \; || true
 
-      - name: Clone NetHunter Builder (Attempt 2)
-        if: steps.builder_clone_1.outputs.success != 'true'
-        continue-on-error: true
-        id: builder_clone_2
-        run: |
-          cd kernel
-          echo "⏳ Cloning NetHunter builder (Attempt 2)..."
-          rm -rf kali-nethunter-kernel-builder
-          sleep 15
-          git clone --depth=1 --single-branch \
-            https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder.git \
-            kali-nethunter-kernel-builder
-          echo "success=true" >> $GITHUB_OUTPUT
+          {
+            echo "Branch: sixteen-qpr2"
+            echo "Commit:"
+            git -C kernel rev-parse HEAD
+            echo "Kernel version:"
+            make -C kernel O=out kernelversion
+            echo "Build date:"
+            date -u
+          } > artifacts/BUILD_INFO.txt
 
-      - name: Clone NetHunter Builder (Attempt 3)
-        if: steps.builder_clone_2.outputs.success != 'true'
-        run: |
-          cd kernel
-          echo "⏳ Cloning NetHunter builder (Attempt 3)..."
-          rm -rf kali-nethunter-kernel-builder
-          sleep 30
-          git clone --depth=1 --single-branch \
-            https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder.git \
-            kali-nethunter-kernel-builder
-          
-          if [ ! -d "kali-nethunter-kernel-builder" ]; then
-            echo "❌ Failed to clone NetHunter builder after 3 attempts"
-            exit 1
-          fi
-          echo "✓ NetHunter builder cloned successfully"
+          find artifacts -type f -ls
 
-      - name: Verify NetHunter Builder
-        run: |
-          if [ ! -d "kernel/kali-nethunter-kernel-builder" ]; then
-            echo "❌ NetHunter builder directory not found"
-            exit 1
-          fi
-          echo "✓ NetHunter builder directory exists"
-          ls -la kernel/kali-nethunter-kernel-builder | head -20
-
-      - name: Setup Build Configuration
-        run: |
-          cd kernel/kali-nethunter-kernel-builder
-          echo "⏳ Creating local.config for RMX2020..."
-          
-          cat > local.config << 'CONFIGEOF'
-          ARCH=arm64
-          SUBARCH=arm64
-          CROSS_COMPILE=aarch64-linux-gnu-
-          CROSS_COMPILE_ARM32=arm-linux-gnueabihf-
-          DEFCONFIG=rmx2020_defconfig
-          KERNEL_DIR=../
-          OUTPUT_DIR=../out/
-          CONFIGEOF
-          
-          echo "✓ local.config created"
-          echo "=== Configuration ==="
-          cat local.config
-
-      - name: Setup Environment & Download Toolchains
-        run: |
-          cd kernel/kali-nethunter-kernel-builder
-          chmod +x build.sh
-          
-          echo "⏳ Setting up environment and downloading toolchains..."
-          echo "This may take 15-25 minutes..."
-          
-          timeout 200 ./build.sh <<'EOF' || true
-          S
-          
-          EOF
-          
-          echo "✓ Toolchain setup completed"
-          sleep 10
-
-      - name: Configure & Compile Kernel
-        run: |
-          cd kernel/kali-nethunter-kernel-builder
-          
-          echo "⏳ Starting kernel compilation..."
-          echo "This may take 60-120 minutes..."
-          echo "⚠️  DO NOT CANCEL - Let it complete"
-          
-          timeout 300 ./build.sh <<'EOF' || true
-          1
-          1
-          
-          EOF
-          
-          echo "✓ Kernel compilation completed"
-          sleep 5
-
-      - name: Verify Build Output
-        run: |
-          echo "⏳ Verifying build output..."
-          echo ""
-          echo "=== Checking kernel/out/arch/arm64/boot/ ==="
-          if [ -d "kernel/out/arch/arm64/boot/" ]; then
-            echo "✓ Found output directory"
-            ls -lh kernel/out/arch/arm64/boot/
-          else
-            echo "❌ Directory not found"
-          fi
-          
-          echo ""
-          echo "=== Checking kernel/arch/arm64/boot/ ==="
-          if [ -d "kernel/arch/arm64/boot/" ]; then
-            echo "✓ Found alternate directory"
-            ls -lh kernel/arch/arm64/boot/
-          else
-            echo "❌ Directory not found"
-          fi
-          
-          echo ""
-          echo "=== Searching for kernel images ==="
-          find kernel -type f \( -name "Image.gz" -o -name "Image" -o -name "dtb" -o -name "dtbo.img" \) 2>/dev/null | head -20
-
-      - name: Collect Kernel Artifacts
-        run: |
-          mkdir -p final-artifacts
-          
-          echo "⏳ Collecting kernel images..."
-          
-          found_files=0
-          
-          # Copy Image.gz
-          if [ -f "kernel/out/arch/arm64/boot/Image.gz" ]; then
-            cp kernel/out/arch/arm64/boot/Image.gz final-artifacts/
-            echo "✓ Copied Image.gz from out/"
-            found_files=$((found_files + 1))
-          elif [ -f "kernel/arch/arm64/boot/Image.gz" ]; then
-            cp kernel/arch/arm64/boot/Image.gz final-artifacts/
-            echo "✓ Copied Image.gz from arch/"
-            found_files=$((found_files + 1))
-          fi
-          
-          # Copy Image (uncompressed)
-          if [ -f "kernel/out/arch/arm64/boot/Image" ]; then
-            cp kernel/out/arch/arm64/boot/Image final-artifacts/
-            echo "✓ Copied Image from out/"
-            found_files=$((found_files + 1))
-          elif [ -f "kernel/arch/arm64/boot/Image" ]; then
-            cp kernel/arch/arm64/boot/Image final-artifacts/
-            echo "✓ Copied Image from arch/"
-            found_files=$((found_files + 1))
-          fi
-          
-          # Copy DTB
-          if [ -f "kernel/out/arch/arm64/boot/dtb" ]; then
-            cp kernel/out/arch/arm64/boot/dtb final-artifacts/
-            echo "✓ Copied dtb from out/"
-            found_files=$((found_files + 1))
-          elif [ -f "kernel/arch/arm64/boot/dtb" ]; then
-            cp kernel/arch/arm64/boot/dtb final-artifacts/
-            echo "✓ Copied dtb from arch/"
-            found_files=$((found_files + 1))
-          fi
-          
-          # Copy DTBO
-          if [ -f "kernel/out/arch/arm64/boot/dtbo.img" ]; then
-            cp kernel/out/arch/arm64/boot/dtbo.img final-artifacts/
-            echo "✓ Copied dtbo.img from out/"
-            found_files=$((found_files + 1))
-          elif [ -f "kernel/arch/arm64/boot/dtbo.img" ]; then
-            cp kernel/arch/arm64/boot/dtbo.img final-artifacts/
-            echo "✓ Copied dtbo.img from arch/"
-            found_files=$((found_files + 1))
-          fi
-          
-          # Create build info file
-          cat > final-artifacts/BUILD_INFO.txt << 'INFOEOF'
-          ========================================
-          NetHunter Kernel Build Information
-          ========================================
-          Device: Realme RMX2020 / Realme C3 / Narzo 10A
-          Model: RMX2020 / RMX2027
-          Kernel: Android 16 QPR2
-          Architecture: ARM64
-          Chipset: MediaTek Helio G70
-          
-          Build Source:
-          - Kernel: https://github.com/sarthakroy2002/android_kernel_realme_RMX2020
-          - Branch: sixteen-qpr2
-          - Builder: Kali Linux NetHunter
-          
-          Files Generated:
-          - Image.gz: Compressed kernel image (use this for flashing)
-          - Image: Uncompressed kernel image
-          - dtb: Device tree blob
-          - dtbo.img: Device tree overlay image
-          
-          Build Completed: $(date)
-          ========================================
-          INFOEOF
-          
-          echo ""
-          echo "=== Final Artifacts Ready ==="
-          ls -lh final-artifacts/
-          echo ""
-          echo "Total files collected: $found_files"
-
-      - name: Upload Artifacts to GitHub
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: nethunter-kernel-rmx2020-a16-qpr2
-          path: final-artifacts/
+          name: rmx2020-kernel-build
+          path: artifacts/
           retention-days: 30
-
-      - name: Build Summary
-        run: |
-          echo ""
-          echo "=========================================="
-          echo "✓✓✓ BUILD COMPLETED SUCCESSFULLY ✓✓✓"
-          echo "=========================================="
-          echo ""
-          echo "Device: Realme RMX2020"
-          echo "Kernel: A16 QPR2"
-          echo "Architecture: ARM64"
-          echo "Build Time: $(date)"
-          echo ""
-          echo "📦 Your kernel files are ready!"
-          echo "📥 Download from: Actions → Artifacts"
-          echo ""
-          echo "Files to download:"
-          echo "  • Image.gz (use for flashing)"
-          echo "  • Image"
-          echo "  • dtb"
-          echo "  • dtbo.img"
-          echo "  • BUILD_INFO.txt"
-          echo ""
-          echo "=========================================="
